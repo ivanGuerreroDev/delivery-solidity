@@ -106,13 +106,62 @@ contract Delivery {
     * Aceptacion de Ordenes
     */
     function acceptOrder(address restaurantAddress, uint256 orderId) public {
-        require(msg.sender == restaurantAddress, "You don't own the restaurant.");
+        require(msg.sender == restaurants[restaurantAddress].id, "You aren't the restaurant owner.");
         Order order = orders[restaurantAddress][orderId];
         order.status = 1;
     }
 
-    
+    /*
+    * Entregar pedido al delivery
+    */
+    function deliverToDelivery(address restaurantAddress, uint256 orderId) public {
+        require(msg.sender == restaurants[restaurantAddress].id, "You aren't the restaurant owner.");
+        Order order = orders[restaurantAddress][orderId];
+        order.status = 2;
+    }
 
+    /*
+    * Aceptar pedido del restaurante
+    */
+    function recieveDelivery(address restaurantAddress, uint256 orderId) public {
+        require(msg.sender == orders[restaurantAddress][orderId].delivery, "You aren't the delivery of this order.");
+        Order order = orders[restaurantAddress][orderId];
+        order.status = 3;
+    }
+
+    /*
+    * Entregar orden
+    */
+    function deliverOrder(address restaurantAddress, uint256 orderId) public {
+        require(msg.sender == orders[restaurantAddress][orderId].delivery, "You aren't the delivery of this order.");
+        Order order = orders[restaurantAddress][orderId];
+        order.status = 4;
+    }
+
+    /*
+    * Aceptar pedido del delivery
+    */
+    function recieveOrder(address restaurantAddress, uint256 orderId) public {
+        require(msg.sender == orders[restaurantAddress][orderId].client, "You aren't the owner of this order.");
+        Order order = orders[restaurantAddress][orderId];
+        order.status = 5;
+    }
+
+    /*
+    *   Cancelar pedido
+    */
+    function cancelOrder(address restaurantAddress, uint256 orderId) public {
+        Order order = orders[restaurantAddress][orderId];
+        require(
+            (
+                msg.sender == order.client
+                || msg.sender == order.delivery
+                || msg.sender == order.restaurant.id
+            ), 
+            "You can't cancel this order."
+        );
+        order.status = 6;
+    }
 
 
     function getBalance() public view returns (uint256) {

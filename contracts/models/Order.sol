@@ -9,9 +9,11 @@ import './Restaurant.sol';
 * Status list:
 * 0: pending
 * 1: preparing
-* 2: shipping
-* 3: accepted
-* 4: canceled
+* 2: pending delivery acceptance,
+* 3: shipping
+* 4: pending client acceptance
+* 5: delivered
+* 6: canceled
 */
 
 struct Order {
@@ -20,8 +22,8 @@ struct Order {
   Restaurant restaurant;
   Item[] items;
   uint64 total_price;
-  address shipper;
-  uint64 shipping_price;
+  address delivery;
+  uint64 delivery_price;
   address platform;
   uint64 platform_tip;
   int128 distance;
