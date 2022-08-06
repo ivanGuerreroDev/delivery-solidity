@@ -41,6 +41,9 @@ contract Delivery {
         restaurants[restaurantAddress] = restaurant;
     }
 
+    /*
+    *   Creación de Ordenes
+    */
     function addOrder(
         address restaurantAddress,
         address shipper,
@@ -62,6 +65,7 @@ contract Delivery {
             restaurants[restaurantAddress].location.lng
         );
         uint256 orderId = nextOrderId++;
+        uint16 status_pending = 0;
         Order newOrder = Order(
             orderId,
             msg.sender,
@@ -72,7 +76,8 @@ contract Delivery {
             platform,
             platform_tip,
             distance,
-            destination
+            destination,
+            status_pending
         );
         orders[msg.sender][orderId] = newOrder;
         return newOrder;
@@ -82,11 +87,31 @@ contract Delivery {
         return orders[restaurantAddress][orderId];
     }
 
+    function getPendingOrders(address restaurantAddress) public view returns (Order[]) {
+        Order[] pendingOrders = new Order[](0);
+        for (uint i=0; i<orders[restaurantAddress].length; i++) {
+            if (orders[restaurantAddress][i].status == 0) {
+                pendingOrders.push(orders[restaurantAddress][i]);
+            }
+        }
+        return pendingOrders;
+    }
+
     function getOrders(address restaurantAddress) public view returns (mapping(address => mapping(uint => Order))) {
         return orders[restaurantAddress];
     }
-    
 
+
+    /*
+    * Aceptacion de Ordenes
+    */
+    function acceptOrder(address restaurantAddress, uint256 orderId) public {
+        require(msg.sender == restaurantAddress, "You don't own the restaurant.");
+        Order order = orders[restaurantAddress][orderId];
+        order.status = 1;
+    }
+
+    
 
 
 
