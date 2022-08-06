@@ -14,6 +14,8 @@ contract Delivery {
     mapping(address => mapping(uint => Product)) public products;
     mapping(uint => Category) public categories;
 
+    uint128 penalty_unit = 2000;
+
     uint256 public nextOrderId = 0;
     uint256 public nextProductId = 0;
     uint256 public nextCategoryId = 0;
@@ -157,12 +159,60 @@ contract Delivery {
                 msg.sender == order.client
                 || msg.sender == order.delivery
                 || msg.sender == order.restaurant.id
+                && ( 
+                    order.status == 0
+                    || order.status == 1
+                    || order.status == 2
+                    || order.status == 3
+                    || order.status == 4
+                )
             ), 
             "You can't cancel this order."
         );
+        this.refund(restaurantAddress, orderId);
+        orders[restaurantAddress].remove(orderId);
         order.status = 6;
     }
 
+    /*
+    *   Refund
+    */
+    function refund(address restaurantAddress, uint256 orderId) public {
+        Order order = orders[restaurantAddress][orderId];
+        address requestor = msg.sender;
+        if(order.status == 0){
+            require(requestor == order.client, "You can't refund this order.");
+            order.client.transfer(order.total_price + order.shipper_price + order.platform_tip);
+        } else if(order.status == 1){
+            if(requestor == order.client){
+                require(msg.value >= order.client_cancel_penalty, "You need send more amount for pay penalty.");
+                order.restaurant.id.transfer(order.total_price);
+                order.client.transfer(order.shipper_price + order.platform_tip);
+            }else if(requestor == order.restaurant.id){
+                require(msg.value >= order.restaurant_cancel_penalty, "You need send more amount for pay penalty.");
+                order.client.transfer(order.total_price + order.shipper_price + order.platform_tip + order.restaurant_cancel_penalty);
+            }
+        } else if(order.status == 2){
+            require(requestor == order.platform, "You can't refund this order.");
+            require(order.platform.balance >= order.platform_tip, "You don't have enough money to refund this order.");
+            order.platform.transfer(order.platform_tip);
+        } else if(order.status == 3){
+            require(requestor == order.delivery, "You can't refund this order.");
+            require(order.delivery.balance >= order.shipper_price, "You don't have enough money to refund this order.");
+            order.delivery.transfer(order.shipper_price);
+        } else if(order.status == 4){
+            require(requestor == order.platform, "You can't refund this order.");
+            require(order.platform.balance >= order.platform_tip, "You don't have enough money to refund this order.");
+            order.platform.transfer(order.platform_tip);
+        } else if(order.status == 5){
+            require(requestor == order.client, "You can't refund this order.");
+            require(order.client.balance >= order.total_price, "You don't have enough money to refund this order.");
+            order.client.transfer(order.total_price);
+        } else if(order.status == 6){
+            require(requestor == order.client, "You can't refund this order.");
+            require(order.client.balance >= order.total_price, "You don't");
+        }
+    }
 
     function getBalance() public view returns (uint256) {
         return address(this).balance;

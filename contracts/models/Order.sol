@@ -29,4 +29,7 @@ struct Order {
   int128 distance;
   Coodernate destination;
   uint64 status;
+  uint64 client_cancel_penalty;
+  uint64 restaurant_cancel_penalty;
+  uint64 delivery_cancel_penalty;
 }
