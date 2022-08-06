@@ -78,6 +78,18 @@ contract Delivery {
         return newOrder;
     }
 
+    function getOrder(address restaurantAddress, uint256 orderId) public view returns (Order) {
+        return orders[restaurantAddress][orderId];
+    }
+
+    function getOrders(address restaurantAddress) public view returns (mapping(address => mapping(uint => Order))) {
+        return orders[restaurantAddress];
+    }
+    
+
+
+
+
     function getBalance() public view returns (uint256) {
         return address(this).balance;
     }
