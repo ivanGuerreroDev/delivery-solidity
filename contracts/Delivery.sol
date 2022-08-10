@@ -2,6 +2,7 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 import './models/Order.sol';
+import './models/Coordenate.sol';
 import './models/Restaurant.sol';
 import './models/Product.sol';
 import './models/Item.sol';
@@ -9,10 +10,10 @@ import './models/Image.sol';
 import './utils/Geo.sol';
 
 contract Delivery {
-    mapping(address => mapping(uint => Order)) public orders;
+    mapping(address => Order[]) public orders;
     mapping(address => Restaurant) public restaurants;
-    mapping(address => mapping(uint => Product)) public products;
-    mapping(uint => Category) public categories;
+    mapping(address => Product[]) public products;
+    Category[] public categories;
 
     uint128 penalty_unit = 2000;
 
@@ -24,38 +25,40 @@ contract Delivery {
 
     fallback() external payable {}
 
-    function addCategory (string _name, Image _image) public {
+    function addCategory (string memory _name, Image memory _image) public {
         nextCategoryId++;
         categories[nextCategoryId] = Category(_name, _image);
     }
 
-    function addProduct (address restaurant, string name, string description, uint64 price, uint64 discount, string imageHash, string ipfsInfo, uint64 category) public {
-        Restaurant r = restaurants[restaurant];
+    function addProduct (address restaurant, string memory name, string memory description, uint64 price, uint64 discount, uint64 tax, string memory imageHash, string memory ipfsInfo, uint64 category) public {
+        Restaurant storage r = restaurants[restaurant];
         r.products++;
-        Category c = categories[category];
+        Category memory c = categories[category];
         nextProductId++;
-        Product p = Product(nextProductId, name, description, Image(imageHash, ipfsInfo), price, discount, c);
+        Product memory p = Product(nextProductId, name, description, Image(imageHash, ipfsInfo), price, discount, tax, c);
         products[restaurant][nextProductId] = p;
     }
 
-    function addRestaurant(address restaurantAddress, string name, string _address, string logo, string banner, uint64 minOrder, mapping(string => Schedule) schedule) public {  
-        Restaurant restaurant = Restaurant(restaurantAddress, name, _address, logo, banner, minOrder, schedule);
-        restaurants[restaurantAddress] = restaurant;
+    function addRestaurant(string memory name, string memory _address, string memory logo_hash, string memory logo_ipfs, string memory banner_hash, string memory banner_ipfs, Coordenate memory location, uint64 minOrder, Schedule[] memory _schedules) public {  
+        Image memory logo = Image(logo_hash, logo_ipfs);
+        Image memory banner = Image(banner_hash, banner_ipfs);
+        Restaurant memory restaurant = Restaurant(payable(msg.sender), name, _address, logo, banner, location, minOrder, _schedules, 0);
+        restaurants[msg.sender] = restaurant;
     }
 
     /*
     *   Creación de Ordenes
     */
     function addOrder(
-        address restaurantAddress,
-        address shipper,
-        address shipper_price,
-        address platform,
-        uint64 platform_tip,
-        Item[] items,
-        Coodernate destination
-    ) public returns (Order){
-        Item[] itemsOrder;
+        address payable restaurantAddress,
+        address payable delivery,
+        uint128 delivery_price,
+        address payable platform,
+        uint128 platform_tip,
+        Item[] memory items,
+        Coordenate memory destination
+    ) public returns (Order memory ){
+        Item[] memory itemsOrder;
         uint64 total_price = 0;
         for (uint i=0; i<items.length; i++) {
             total_price += ( items[i].product.price - items[i].product.discount + items[i].product.tax) * items[i].quantity;
@@ -68,13 +71,14 @@ contract Delivery {
         );
         uint256 orderId = nextOrderId++;
         uint16 status_pending = 0;
-        Order newOrder = Order(
+        Order memory newOrder = Order( 
             orderId,
-            msg.sender,
+            payable(msg.sender),
+            restaurants[restaurantAddress],
             items,
             total_price,
-            shipper,
-            shipper_price * distance,
+            delivery,
+            delivery_price * uint128(distance),
             platform,
             platform_tip,
             distance,
@@ -85,21 +89,23 @@ contract Delivery {
         return newOrder;
     }
 
-    function getOrder(address restaurantAddress, uint256 orderId) public view returns (Order) {
+    function getOrder(address restaurantAddress, uint256 orderId) public view returns (Order memory ) {
         return orders[restaurantAddress][orderId];
     }
 
-    function getPendingOrders(address restaurantAddress) public view returns (Order[]) {
-        Order[] pendingOrders = new Order[](0);
-        for (uint i=0; i<orders[restaurantAddress].length; i++) {
+    function getPendingOrders(address restaurantAddress) public view returns (Order[] memory ) {
+        Order[] memory pendingOrders = new Order[](0);
+        uint count = 0;
+        for (uint i=0; i < orders[restaurantAddress].length; i++) {
             if (orders[restaurantAddress][i].status == 0) {
-                pendingOrders.push(orders[restaurantAddress][i]);
+                pendingOrders[count] = orders[restaurantAddress][i];
+                count++;
             }
         }
         return pendingOrders;
     }
 
-    function getOrders(address restaurantAddress) public view returns (mapping(address => mapping(uint => Order))) {
+    function getOrders(address restaurantAddress) public view returns (Order[] memory ) {
         return orders[restaurantAddress];
     }
 
@@ -109,7 +115,7 @@ contract Delivery {
     */
     function acceptOrder(address restaurantAddress, uint256 orderId) public {
         require(msg.sender == restaurants[restaurantAddress].id, "You aren't the restaurant owner.");
-        Order order = orders[restaurantAddress][orderId];
+        Order memory order = orders[restaurantAddress][orderId];
         order.status = 1;
     }
 
@@ -118,7 +124,7 @@ contract Delivery {
     */
     function deliverToDelivery(address restaurantAddress, uint256 orderId) public {
         require(msg.sender == restaurants[restaurantAddress].id, "You aren't the restaurant owner.");
-        Order order = orders[restaurantAddress][orderId];
+        Order memory order = orders[restaurantAddress][orderId];
         order.status = 2;
     }
 
@@ -127,7 +133,7 @@ contract Delivery {
     */
     function recieveDelivery(address restaurantAddress, uint256 orderId) public {
         require(msg.sender == orders[restaurantAddress][orderId].delivery, "You aren't the delivery of this order.");
-        Order order = orders[restaurantAddress][orderId];
+        Order memory order = orders[restaurantAddress][orderId];
         order.status = 3;
     }
 
@@ -136,7 +142,7 @@ contract Delivery {
     */
     function deliverOrder(address restaurantAddress, uint256 orderId) public {
         require(msg.sender == orders[restaurantAddress][orderId].delivery, "You aren't the delivery of this order.");
-        Order order = orders[restaurantAddress][orderId];
+        Order memory order = orders[restaurantAddress][orderId];
         order.status = 4;
     }
 
@@ -145,7 +151,7 @@ contract Delivery {
     */
     function recieveOrder(address restaurantAddress, uint256 orderId) public {
         require(msg.sender == orders[restaurantAddress][orderId].client, "You aren't the owner of this order.");
-        Order order = orders[restaurantAddress][orderId];
+        Order memory order = orders[restaurantAddress][orderId];
         order.status = 5;
     }
 
@@ -153,7 +159,7 @@ contract Delivery {
     *   Cancelar pedido
     */
     function cancelOrder(address restaurantAddress, uint256 orderId) public {
-        Order order = orders[restaurantAddress][orderId];
+        Order memory order = orders[restaurantAddress][orderId];
         require(
             (
                 msg.sender == order.client
@@ -170,7 +176,6 @@ contract Delivery {
             "You can't cancel this order."
         );
         this.refund(restaurantAddress, orderId);
-        orders[restaurantAddress].remove(orderId);
         order.status = 6;
     }
 
@@ -178,21 +183,25 @@ contract Delivery {
     *   Refund
     */
     function refund(address restaurantAddress, uint256 orderId) public {
-        Order order = orders[restaurantAddress][orderId];
+        Order memory order = orders[restaurantAddress][orderId];
         address requestor = msg.sender;
         if(order.status == 0){
             require(requestor == order.client, "You can't refund this order.");
-            order.client.transfer(order.total_price + order.shipper_price + order.platform_tip);
+            order.client.transfer(order.total_price + order.delivery_price + order.platform_tip);
         } else if(order.status == 1){
             if(requestor == order.client){
-                require(msg.value >= order.client_cancel_penalty, "You need send more amount for pay penalty.");
+                require(msg.value >= penalty_unit, "You need send more amount for pay penalty.");
                 order.restaurant.id.transfer(order.total_price);
-                order.client.transfer(order.shipper_price + order.platform_tip);
+                order.client.transfer(order.delivery_price + order.platform_tip);
             }else if(requestor == order.restaurant.id){
-                require(msg.value >= order.restaurant_cancel_penalty, "You need send more amount for pay penalty.");
-                order.client.transfer(order.total_price + order.shipper_price + order.platform_tip + order.restaurant_cancel_penalty);
+                require(msg.value >= penalty_unit, "You need send more amount for pay penalty.");
+                order.client.transfer(order.total_price + order.delivery_price + order.platform_tip + penalty_unit);
             }
-        } else if(order.status == 2){
+        } 
+        
+        
+        
+        /*else if(order.status == 2){
             require(requestor == order.platform, "You can't refund this order.");
             require(order.platform.balance >= order.platform_tip, "You don't have enough money to refund this order.");
             order.platform.transfer(order.platform_tip);
@@ -211,53 +220,6 @@ contract Delivery {
         } else if(order.status == 6){
             require(requestor == order.client, "You can't refund this order.");
             require(order.client.balance >= order.total_price, "You don't");
-        }
-    }
-
-    function getBalance() public view returns (uint256) {
-        return address(this).balance;
-    }
-
-    function getBalanceBySender(address _address)
-        public
-        view
-        returns (uint256)
-    {
-        return balances[_address];
-    }
-
-    function getAddress() public view returns (address) {
-        return address(this);
-    }
-
-    function transferBySend(
-        address _from,
-        address payable _to,
-        uint256 amount
-    ) public returns (bool) {
-        balances[_from] -= amount;
-        bool sent = _to.send(amount);
-        require(sent, "Failed to send Ether");
-        return sent;
-    }
-
-    function TransferByTransfer(
-        address _from,
-        address payable _to,
-        uint256 amount
-    ) public {
-        balances[_from] -= amount;
-        _to.transfer(amount);
-    }
-
-    function TransferByCall(
-        address _from,
-        address payable _to,
-        uint256 amount
-    ) public returns (bool) {
-        balances[_from] -= amount;
-        (bool sent, ) = _to.call{value: amount, gas: 1000}("");
-        require(sent, "Failed to send Ether");
-        return sent;
+        }*/
     }
 }

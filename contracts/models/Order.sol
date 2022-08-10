@@ -2,7 +2,7 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 import './Item.sol';
-import './Coodernate.sol';
+import './Coordenate.sol';
 import './Restaurant.sol';
 
 /*
@@ -18,18 +18,15 @@ import './Restaurant.sol';
 
 struct Order {
   uint id;
-  address client;
+  address payable client;
   Restaurant restaurant;
   Item[] items;
-  uint64 total_price;
-  address delivery;
-  uint64 delivery_price;
-  address platform;
-  uint64 platform_tip;
+  uint128 total_price;
+  address payable delivery;
+  uint128 delivery_price;
+  address payable platform;
+  uint128 platform_tip;
   int128 distance;
-  Coodernate destination;
-  uint64 status;
-  uint64 client_cancel_penalty;
-  uint64 restaurant_cancel_penalty;
-  uint64 delivery_cancel_penalty;
+  Coordenate destination;
+  uint16 status;
 }
