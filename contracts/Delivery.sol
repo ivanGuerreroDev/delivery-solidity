@@ -31,7 +31,7 @@ contract Delivery {
     }
 
     function addProduct (address restaurant, string memory name, string memory description, uint64 price, uint64 discount, uint64 tax, string memory imageHash, string memory ipfsInfo, uint64 category) public {
-        Restaurant storage r = restaurants[restaurant];
+        Restaurant memory r = restaurants[restaurant];
         r.products++;
         Category memory c = categories[category];
         nextProductId++;
@@ -63,12 +63,19 @@ contract Delivery {
         for (uint i=0; i<items.length; i++) {
             total_price += ( items[i].product.price - items[i].product.discount + items[i].product.tax) * items[i].quantity;
         }
-        int128 distance = Geo.getDistance(
+        int distance = Geo.getDistance(
             destination.lat, 
             destination.lng, 
             restaurants[restaurantAddress].location.lat, 
             restaurants[restaurantAddress].location.lng
         );
+        uint udistance;
+        if(distance < 0) {
+            udistance = uint(-distance);
+        }
+        else {
+            udistance = uint(distance);
+        }
         uint256 orderId = nextOrderId++;
         uint16 status_pending = 0;
         Order memory newOrder = Order( 
@@ -78,10 +85,10 @@ contract Delivery {
             items,
             total_price,
             delivery,
-            delivery_price * uint128(distance),
+            delivery_price * uint128(udistance),
             platform,
             platform_tip,
-            distance,
+            uint128(udistance),
             destination,
             status_pending
         );
@@ -182,7 +189,7 @@ contract Delivery {
     /*
     *   Refund
     */
-    function refund(address restaurantAddress, uint256 orderId) public {
+    function refund(address restaurantAddress, uint256 orderId) payable public {
         Order memory order = orders[restaurantAddress][orderId];
         address requestor = msg.sender;
         if(order.status == 0){

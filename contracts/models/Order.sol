@@ -26,7 +26,7 @@ struct Order {
   uint128 delivery_price;
   address payable platform;
   uint128 platform_tip;
-  int128 distance;
+  uint128 distance;
   Coordenate destination;
   uint16 status;
 }
