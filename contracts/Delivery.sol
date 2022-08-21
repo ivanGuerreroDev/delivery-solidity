@@ -193,7 +193,6 @@ contract Delivery {
         Order memory order = orders[restaurantAddress][orderId];
         address requestor = msg.sender;
         if(order.status == 0){
-            require(requestor == order.client, "You can't refund this order.");
             order.client.transfer(order.total_price + order.delivery_price + order.platform_tip);
         } else if(order.status == 1){
             if(requestor == order.client){
@@ -203,8 +202,14 @@ contract Delivery {
             }else if(requestor == order.restaurant.id){
                 require(msg.value >= penalty_unit, "You need send more amount for pay penalty.");
                 order.client.transfer(order.total_price + order.delivery_price + order.platform_tip + penalty_unit);
+            } else {
+                require(false, "You can't refund this order.");
             }
-        } 
+        } else if(order.status == 2){
+            if(requestor == order.client){
+
+            }
+        }
         
         
         
